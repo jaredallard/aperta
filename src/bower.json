@@ -1,0 +1,33 @@
+{
+  "name": "mcModded",
+  "description": "Dependency package for npm mc-modded",
+  "main": "../index.html",
+  "moduleType": [
+    "globals",
+    "node"
+  ],
+  "keywords": [
+    "minecraft",
+    "mc",
+    "node",
+    "forge"
+  ],
+  "authors": [
+    "Jared Allard <jaredallard@outlook.com"
+  ],
+  "license": "MIT",
+  "homepage": "http://mc.jaredallard.me",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "bootstrap": "~3.3.5",
+    "jquery": "~2.1.4",
+    "material-design-lite": "~1.0.6"
+  }
+}

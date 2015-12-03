@@ -1,0 +1,86 @@
+body,
+html {
+  height:100%;
+  width:100%;
+
+  background-color: rgba(0,0,0,0);
+
+  -webkit-transform-style: preserve-3d;
+  -moz-transform-style: preserve-3d;
+  transform-style: preserve-3d;
+
+  /* ie6 fix, yes I know we are using chromium */
+  text-align: center;
+}
+
+input:-webkit-autofill {
+    -webkit-box-shadow: 0 0 0px 1000px white inset;
+}
+
+.login-container {
+  -webkit-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+
+  width:300px;
+  height:400px;
+
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+  margin:0 auto;
+  text-align:left;
+
+  -webkit-box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
+  -moz-box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
+  box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
+
+  background-color: #FFFFFF;
+}
+
+.login-form {
+  height:100%;
+  width:100%;
+
+  position:relative;
+}
+
+.login-drag {
+  height: 50px;
+  width:100%;
+  -webkit-app-region: drag;
+}
+
+.login-drag-close {
+  float:right;
+  padding-right:10px;
+  padding-top:10px;
+  text-align: center;
+  -webkit-app-region: no-drag;
+}
+.login-drag-close i {
+  font-size:1.2em;
+  color:#bebebe;
+}
+
+.login-name {
+  text-align: center;
+  font-size: 2.9em;
+  font-family: Lobster, Monospace;
+
+  padding-bottom: 50px;
+}
+
+.login-sub {
+  font-size:0.9em;
+}
+
+.login-inputs {
+  padding:20px;
+}
+
+.login-button {
+  position:absolute;
+  bottom:0;
+  float:right;
+}

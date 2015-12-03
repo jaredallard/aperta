@@ -1,0 +1,52 @@
+
+.mdl-card__title {
+  background-color: rgba(0,0,0,0.5);
+}
+
+.progress-wrapper {
+  height:100%;
+  width:100%;
+  z-index:1000;
+  position:fixed;
+  top:0;
+  bottom:0;
+  right:0;
+  left:0;
+  background-color: rgba(255,255,255,0.5);
+}
+
+.progress-object {
+  width:300px;
+  height:70px;
+
+  position: relative;
+  top: 50%;
+  transform: translateY(-50%);
+  margin:0 auto;
+  text-align:left;
+
+  -webkit-box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
+  -moz-box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
+  box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
+
+  background-color: white;
+}
+
+.progress-inner {
+  position:relative;
+
+  padding:10px;
+  padding-top:30px;
+}
+
+.progress-inner-name {
+  padding-top:10px;
+  float:left;
+  font-size: 0.9em;
+}
+
+.progress-inner-number {
+  padding-top:10px;
+  float:right;
+  font-size: 0.9em;
+}

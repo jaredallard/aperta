@@ -1,0 +1,21 @@
+{
+  "name": "aperta-launcher",
+  "version": 1.0,
+  "author": "Jared Allard <jaredallard@outlook.com>",
+  "main": "index.html",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaredallard/aperta.git"
+  },
+  "keywords": [
+    "minecraft",
+    "mc",
+    "modded",
+    "forge"
+  ],
+  "window": {
+    "height": 546,
+    "width": 1025,
+    "resizeable": false
+  }
+}
