@@ -27,6 +27,17 @@ Lots!
 * Fully Material UI (it's all Material right now but not the best UI ever!)
 * FTB & ATL mod compatability.
 
+## How do I use this? :(
+
+We currently have no pre-builts. This is because I just got this working, and the build
+process is spotty right now, so no single files or fanciness.
+
+Just download [NW.js](https://nwjs.io) for your platform, place it somewhere then run:
+
+```bash
+nwjs /path/to/aperta/not-src-dir
+```
+
 ## What's it built with?
 
 Lots of cool open source frameworks;
