@@ -655,8 +655,8 @@ mmd.prototype.launchProfile = function(name) {
 
   if(manifest.is_modded === true) {
     forge_info = path.join(this.minecraft_vers, manifest.forge_version, manifest.forge_version+'.json');
-    // main_class = new String(JSON.parse(fs.readFileSync(forge_info, 'utf8')).versionInfo.mainClass);
-    main_class = 'net.minecraft.launchwrapper.Launch';
+    main_class = new String(JSON.parse(fs.readFileSync(forge_info, 'utf8')).versionInfo.mainClass);
+    // main_class = 'net.minecraft.launchwrapper.Launch';
     version = manifest.forge_version; // hacky, remove eventually
   }
 
