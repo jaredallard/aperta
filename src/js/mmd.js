@@ -385,6 +385,19 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
 
         var sl = path.join(that.minecraft_libs, lib_package, lib_name, lib_ver);
 
+        if(lib_obj.rules !== undefined) {
+          for(var i = 0; i !== lib_obj.rules.length; i++) {
+            var tnativer = lib_obj.rules[i];
+
+            if(tnativer.action === 'disallow') {
+              if(tnativer.os.name === that.os_platform) {
+                console.log('[NOTICE]', 'This native is DISALLOWED on this platform');
+                return cb('[DISALLOWED] ', lib_name, lib_ver);
+              }
+            }
+          }
+        }
+
         // make that dir!
         mkdirp.sync(sl);
 
@@ -395,10 +408,8 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
             lib_obj.path = path.join(sl, lib_path);
             natives.push(lib_obj);
           } else {
-            console.log('WARN', 'Native isn\'t supported for out platform');
-            cb();
-
-            return;
+            console.log('[NOTICE]', 'Native isn\'t supported for this platform');
+            return cb('[SKIP] ', lib_name, lib_ver);
           }
         } else {
           readahead = 1; // is a non-native hook
@@ -432,12 +443,13 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
         }).on('progress', function(state) {
           onProgress(null, state, path.basename(url+dl));
         }).on('error', function(err) {
+          console.log('[WARN]', 'request states error on downloading: ', lib_name, lib_ver)
           onProgress(err);
         }).pipe(output);
 
         // console.log('GET', url, dl);
 
-        output.on('close', function() {
+        output.on('close', function(err) {
           onProgress(null, { percent: 100 }, path.basename(url+dl));
 
           var is_cust = '';
@@ -642,18 +654,26 @@ mmd.prototype.launchProfile = function(name) {
   var main_class = 'net.minecraft.client.main.Main';
 
   if(manifest.is_modded === true) {
+    forge_info = path.join(this.minecraft_vers, manifest.forge_version, manifest.forge_version+'.json');
+    // main_class = new String(JSON.parse(fs.readFileSync(forge_info, 'utf8')).versionInfo.mainClass);
     main_class = 'net.minecraft.launchwrapper.Launch';
-    // forge_jar = path.join(this.minecraft_vers, manifest.forge_version, manifest.forge_version+'.jar')+';'
     version = manifest.forge_version; // hacky, remove eventually
   }
 
   async.each(vnatives, function(file, callback) {
     file.path += '.jar'; // add jar ext TODO: make this do it on download, not on instancing.
 
+    console.log('[INFO]', 'extract '+file.name);
+
     var uzs = fs.createReadStream(file.path)
     .pipe(unzip.Extract({
       path: natives_path
     }));
+
+    uzs.on('error', function() {
+      console.log(error);
+      throw 'extraction error, fatal.';
+    });
 
     uzs.on('close', function() {
       console.log('[INFO]', 'extracted '+file.name);
@@ -669,14 +689,13 @@ mmd.prototype.launchProfile = function(name) {
     var java_args = [
       '-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump',
       '-Xms512m',
-      '-Xmx4096m',
+      '-Xmx2048m',
       '-XX:+UseConcMarkSweepGC',
-      '-XX:+CMSIncrementalMode',
       '-XX:-UseAdaptiveSizePolicy',
       '-Duser.language=en',
       '-Djava.library.path='+natives_path,
       '-cp',
-      forge_jar+vlibs.toString().replace(/\,/g, ';')+';'+version_jar,
+      vlibs.toString().replace(/\,/g, ';')+';'+version_jar,
       main_class,
       '--username',
       my_un,
@@ -808,6 +827,10 @@ mmd.prototype.installModpack = function(name, onProgress, onFinished) {
         }, dj.versions.forge);
       },
       function(cb) {
+        if(dj.files.length === 0) {
+          return cb();
+        }
+
         console.log('[INFO]', 'installing modpack mods');
 
         async.each(dj.files, function(modbun, callback) {

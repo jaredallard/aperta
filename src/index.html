@@ -14,7 +14,7 @@
     <div class="demo-layout mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header">
       <header class="demo-header mdl-layout__header mdl-color--blue-grey-900 mdl-color-text--blue-grey-50">
         <div class="mdl-layout__header-row">
-          <span id='page-title' class="mdl-layout-title">Mods</span>
+          <span id='page-title' class="mdl-layout-title">title not set</span>
           <div class="mdl-layout-spacer"></div>
           <div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable">
             <label class="mdl-button mdl-js-button mdl-button--icon" for="search">
@@ -51,18 +51,24 @@
           </div>
           </header>
           <nav class="demo-navigation mdl-navigation mdl-color--blue-grey-800">
-            <a class="mdl-navigation__link" href="#mods"><i class="mdl-color-text--blue-grey-400 material-icons" role="presentation">home</i>Mods</a>
+            <a class="mdl-navigation__link" href="javascript:page.set('mods')"><i class="mdl-color-text--blue-grey-400 material-icons" role="presentation">home</i>Mods</a>
             <a class="mdl-navigation__link" href="#forums"><i class="mdl-color-text--blue-grey-400 material-icons" role="presentation">forum</i>Forums</a>
             <a class="mdl-navigation__link" href="#updates"><i class="mdl-color-text--blue-grey-400 material-icons" role="presentation">flag</i>Updates</a>
-                        <a class="mdl-navigation__link" href="#about"><i class="mdl-color-text--blue-grey-400 material-icons" role="presentation">info</i>About</a>
+            <a class="mdl-navigation__link" href="javascript:page.set('about')"><i class="mdl-color-text--blue-grey-400 material-icons" role="presentation">info</i>About</a>
             <div class="mdl-layout-spacer"></div>
             <a class="mdl-navigation__link" href=""><i class="mdl-color-text--blue-grey-400 material-icons" role="presentation">help_outline</i><span class="visuallyhidden">Help</span></a>
           </nav>
         </div>
 
-        <main class="mdl-layout__content mdl-color--grey-100">
+        <main class="mdl-layout__content mdl-color--grey-100" page="mods">
           <div id='mods' class="mdl-grid demo-content">
 
+          </div>
+        </main>
+
+        <main class="mdl-layout__content mdl-color--grey-100" page="about">
+          <div class='about'>
+            Say something...
           </div>
         </main>
       </div>
@@ -102,6 +108,7 @@
       <script src="bower_components/material-design-lite/material.min.js"></script>
       <script src="bower_components/jquery/dist/jquery.min.js"></script>
       <script src="js/ui.js"></script>
+      <script src="js/page.js"></script>
       <script src="js/load.js"></script>
       <script type="text/javascript">
         ui.doMain();

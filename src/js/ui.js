@@ -101,6 +101,7 @@ window.ui = {
       }
 
       $('.progress-wrapper').hide();
+      $(elem).find('.mdl-button').text('LAUNCH')
     });
   },
   getMods: function() {
