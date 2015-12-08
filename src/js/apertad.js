@@ -1,15 +1,14 @@
 /**
- * Minecraft Modded Daemon (mmd) api library
+ * Aperta Server Library and Minecraft Aspects
  *
  * @author Jared Allard <jaredallard@outlook.com>
- * @version 0.1.4
+ * @version 1.0.0
  * @license MIT
  * @todo seperation of MC and mmd APIs
- * @todo use aync.waterfall
- * @todo change name of library
+ * @todo use aync.waterfall [more than now]
  **/
 
-// NOTE: to swap, just rewrite the request method
+// NOTE: to use mmd with jQuery instead of request, just re-write request method
 var request  = require('request'),
     fs       = require('fs'),
     chldpro  = require('child_process'),
@@ -22,9 +21,14 @@ var request  = require('request'),
     mkdirp   = require('mkdirp'),
     events   = require('events');
 
+/**
+ * mmd
+ * @constructor
+ **/
 var mmd = function(server_uri, version, secure) {
   this.api_version = version;
   this.templates = {};
+
   server_uri = server_uri.replace(/\/$/g, ''); // remove trailing slash
   server_uri = server_uri.replace(/^https?:\/\//g, ''); // remove http(s)
 
@@ -125,9 +129,10 @@ var mmd = function(server_uri, version, secure) {
 /**
  * Send a request to the API.
  *
- * @param method {string} GET/POST/DELETE/PUT
- * @param url {string} aka endpoint i.e modpacks
- * @param params {object} params to send in the body on anything but GET.
+ * @param {method} String - GET/POST/DELETE/PUT
+ * @param {url} String - aka endpoint i.e modpacks
+ * @param {params} Object - params to send in the body on anything but GET.
+ * @param {callback} Function - on success or error
  **/
 mmd.prototype.request = function(method, url, params, cb) {
   method = method.toUpperCase();
@@ -170,11 +175,10 @@ mmd.prototype.request = function(method, url, params, cb) {
     json: isJsonData
   }, function(err, res, body) {
     if(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
-    cb(null, body);
+    return cb(null, body);
   });
 }
 
@@ -194,6 +198,13 @@ mmd.prototype.delete = function(url, params, cb) {
   this.request('DELETE', url, params, cb);
 }
 
+/**
+ * Get minecraft access tokens
+ *
+ * @param {username} String - username or email of minecraft user
+ * @param {password} String - plaintext user password
+ * @param {callback} Function - on success or error
+ **/
 mmd.prototype.mc_getClientAndAccess = function(username, password, callback) {
   if(callback === undefined) {
     callback = function() {};
@@ -248,7 +259,6 @@ mmd.prototype.mc_getClientAndAccess = function(username, password, callback) {
 
 /**
  * Get the list of versions
- *
  **/
 mmd.prototype.mc_getVersions = function() {
   var that = this;
@@ -265,18 +275,18 @@ mmd.prototype.mc_getVersions = function() {
     try {
       versions_list = JSON.parse(body);
     } catch(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
-    cb(null, versions_list.objects);
+    return cb(null, versions_list.objects);
   });
 }
 
 /**
  * Get the assets for a index (version)
  *
- * @param version {string} index
+ * @param {version} String - minecraft index version
+ * @param {cb} Function - on success or error
  **/
 mmd.prototype.mc_getAssets = function(version, cb) {
   var that = this;
@@ -285,42 +295,64 @@ mmd.prototype.mc_getAssets = function(version, cb) {
     uri: 'https://s3.amazonaws.com/Minecraft.Download/indexes/'+version+'.json'
   }, function(err, res, body) {
     if(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
     var assets_list;
     try {
       assets_list = JSON.parse(body);
     } catch(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
-    cb(null, assets_list.objects, assets_list);
+    return cb(null, assets_list.objects, assets_list);
   });
 }
 
+/**
+ * Download libararies required by Minecraft and Forge.
+ *
+ * @param {version} String - Minecraft version
+ * @param {onProgress} Function - on download progress every 100ms
+ * @param {cb} Function - on success or error
+ * @param {forge} String - Forge version
+ *
+ * @todo cleanup
+ * @todo async.waterfall?
+ **/
 mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
   var sl   = path.join(this.minecraft_vers, version),
       sjs  = path.join(sl, version+'.json'),
       sja  = path.join(sl, version+'.jar'),
       that = this;
 
+  // create the director[y/ies].
   mkdirp.sync(sl);
 
-  var output = fs.createWriteStream(sja);
-  request.get('http://s3.amazonaws.com/Minecraft.Download/versions/'+version+'/'+version+'.jar').pipe(output);
+  var output = fs.createWriteStream(sja),
+      mc_version_base,
+      mc_version_jar,
+      mc_version_json;
+
+  // less code repatability.
+  mc_version_base = 'http://s3.amazonaws.com/Minecraft.Download/versions/';
+  mc_version_base += version+'/'+version;
+
+  request.get(mc_version_jar).pipe(output);
   output.on('close', function() {
     console.log('downloaded:', version+'.jar');
 
     var output = fs.createWriteStream(sjs);
-    request.get('http://s3.amazonaws.com/Minecraft.Download/versions/'+version+'/'+version+'.json').pipe(output);
+    request.get(mc_version_json).pipe(output);
     output.on('close', function() {
       console.log('downloaded:', version+'.json');
 
-      var lc = fs.readFileSync(sjs, 'utf8');
-      var ll = JSON.parse(lc).libraries;
+      try {
+        var lc = fs.readFileSync(sjs, 'utf8');
+        var ll = JSON.parse(lc).libraries;
+      } catch(err) {
+        return cb('DOWNLOADERR', err);
+      }
 
       // FORGE "HOOK" hacky at the moment.
       if(forge) { // TODO: seperate from version profile
@@ -335,8 +367,8 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
           return;
         }
 
-        var lfc = fs.readFileSync(forge_info, 'utf8');
-        var lfp = JSON.parse(lfc).versionInfo.libraries;
+        var lfc = fs.readFileSync(forge_info, 'utf8'),
+            lfp = JSON.parse(lfc).versionInfo.libraries;
 
         // bad deps
         var maven_override = [
@@ -345,7 +377,7 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
         ];
 
         console.log('[INFO]', 'scanning for version conflicts and merging forge libs')
-        for(var i = 0; i !== lfp.length; i++) {
+        for(var i = 0; i !== lfp.length; i++) { // TODO: document
           var remote_lib = lfp[i].name.split(':');
 
           for(var ii = 0; ii!== ll.length; ii++) {
@@ -373,7 +405,7 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
       var natives     = [],
           non_natives = [];
 
-      var downloadLib = function(lib_obj, cb) {
+      var downloadLib = function(lib_obj, lib_cb) {
         var so = lib_obj.name.split(':');
 
         var readahead = 0;
@@ -392,13 +424,13 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
             if(tnativer.action === 'disallow') {
               if(tnativer.os.name === that.os_platform) {
                 console.log('[NOTICE]', 'This native is DISALLOWED on this platform');
-                return cb('[DISALLOWED] ', lib_name, lib_ver);
+                return lib_cb('[DISALLOWED] ', lib_name, lib_ver);
               }
             }
           }
         }
 
-        // make that dir!
+        // make the director[y/ies]
         mkdirp.sync(sl);
 
         if(lib_obj.natives !== undefined) {
@@ -409,7 +441,7 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
             natives.push(lib_obj);
           } else {
             console.log('[NOTICE]', 'Native isn\'t supported for this platform');
-            return cb('[SKIP] ', lib_name, lib_ver);
+            return lib_cb('[SKIP] ', lib_name, lib_ver);
           }
         } else {
           readahead = 1; // is a non-native hook
@@ -427,9 +459,9 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
         lib_path += '.jar';
         lib_url  += '.jar';
 
-        var dl = lib_package+'/'+lib_name+'/'+lib_ver+'/'+lib_url;
-        var sf = path.join(sl, lib_path);
-        var output = fs.createWriteStream(sf);
+        var dl = lib_package+'/'+lib_name+'/'+lib_ver+'/'+lib_url,
+        sf = path.join(sl, lib_path),
+        output = fs.createWriteStream(sf);
 
         if(readahead === 1) {
           non_natives.push(sf); // faster start times
@@ -438,6 +470,7 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
         // DEBUG: console.log('GET', 'https://libraries.minecraft.net/'+dl);
         var url = lib_obj.url || 'https://libraries.minecraft.net/';
 
+        // show progress on download
         progress(request(url+dl), {
           throttle: 100
         }).on('progress', function(state) {
@@ -446,8 +479,6 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
           console.log('[WARN]', 'request states error on downloading: ', lib_name, lib_ver)
           onProgress(err);
         }).pipe(output);
-
-        // console.log('GET', url, dl);
 
         output.on('close', function(err) {
           onProgress(null, { percent: 100 }, path.basename(url+dl));
@@ -459,41 +490,55 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
           if(lib_obj.natives) {
             is_cust += '[NATIVE] ';
           }
-          cb(is_cust+'200 OK', lib_name, lib_ver);
+          lib_cb(is_cust+'200 OK', lib_name, lib_ver);
         });
       }
 
       // super hacky async loop
       var i = 0;
-      function loop(list, downloader, cb) {
+      function loop(list, downloader, loop_cb) {
         if(list[i] === undefined) {
-          cb(null);
-          return;
+          return loop_cb(null);
         }
 
         downloader(list[i], function(s, ln, lv) {
           console.log(s, ln+'-'+lv);
           i++;
-          loop(list, downloader, cb);
+          loop(list, downloader, loop_cb);
         });
       }
 
       loop(ll, downloadLib, function() {
-        // todo non sync
-        console.log('INFO', 'wrote new JS dbs')
-        fs.writeFileSync(path.join(that.minecraft_vers, version, version+'-natives.json'), JSON.stringify(natives), 'utf8');
-        fs.writeFileSync(path.join(that.minecraft_vers, version, version+'-libs.json'), JSON.stringify(non_natives), 'utf8');
-        cb(null)
+        fs.writeFile(path.join(that.minecraft_vers, version, version+'-natives.json'), JSON.stringify(natives), 'utf8', function(err) {
+          if(err) {
+            return cb(err);
+          }
+
+          fs.writeFileSync(path.join(that.minecraft_vers, version, version+'-libs.json'), JSON.stringify(non_natives), 'utf8', function(err) {
+            if(err) {
+              return cb(err);
+            }
+
+            return cb(null);
+          });
+        });
       });
     });
   });
 }
 
+/**
+ * Download assets for {version} index of MC.
+ *
+ * @param {version} String - minecraft asset index number
+ * @param {onProgrss} Function - called on progress every 100ms
+ * @param {cb} Function - called on success or error
+ **/
 mmd.prototype.downloadVersionAssets = function(version, onProgress, cb) {
   var that = this;
 
   if(fs.existsSync(path.join(this.minecraft_assets, 'indexes', version+'.json'))) {
-    return cb(null);
+    return cb(null); // already exists, return
   }
 
   this.mc_getAssets(version, function(err, al, al_obj) {
@@ -505,6 +550,7 @@ mmd.prototype.downloadVersionAssets = function(version, onProgress, cb) {
     var indexes = path.join(that.minecraft_assets, 'indexes')
 
     mkdirp.sync(indexes);
+
     fs.writeFileSync(path.join(indexes, version+'.json'), JSON.stringify(al_obj), 'utf8');
 
     var aa = [];
@@ -563,30 +609,40 @@ mmd.prototype.downloadVersionAssets = function(version, onProgress, cb) {
 
 /**
  * Create profile utiziling MC.
- * @todo async
+ *
+ * @param {name} String - profile name
+ * @param {version} String - minecraft version
+ * @param {onProgress} Function - called on progress update every 100ms
+ * @param {cb} Function - called on success or error
+ * @param {forge_version} String - forge version to use.
+ *
+ * @todo async.waterfall
  **/
 mmd.prototype.createProfile = function(name, version, onProgress, cb, forge_version) {
-  var that = this;
+  var that = this,
+      dir  = path.join(this.minecraft_envs, name);
 
-  var dir = path.join(this.minecraft_envs, name);
+  // create the director[y/ies]
   mkdirp.sync(dir);
 
   console.log('INFO', 'downloading libraries');
   this.downloadAVersion(version, onProgress, function(err) {
     if(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
-    var index;
-    try {
-      var fp = path.join(that.minecraft_vers, version, version+'.json');
-      var fc = fs.readFileSync(fp, 'utf8');
+    var index,
+        fp,
+        fc;
 
+    try {
+      fp = path.join(that.minecraft_vers, version, version+'.json');
+      fc = fs.readFileSync(fp, 'utf8');
+
+      // parse the assets file
       index = JSON.parse(fc).assets;
     } catch(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
     console.log('INFO', 'index is', index);
@@ -594,8 +650,7 @@ mmd.prototype.createProfile = function(name, version, onProgress, cb, forge_vers
 
     that.downloadVersionAssets(index, onProgress, function(err) {
       if(err) {
-        cb(err);
-        return
+        return cb(err);
       }
 
       var obj = {
@@ -610,58 +665,85 @@ mmd.prototype.createProfile = function(name, version, onProgress, cb, forge_vers
         obj.forge_is_installed = false;
       }
 
-      fs.writeFileSync(dir+'/profile.json', JSON.stringify(obj), 'utf8');
-
-      if(cb) {
-        cb(null);
-      }
+      fs.writeFile(dir+'/profile.json', JSON.stringify(obj), 'utf8', function(err) {
+        if(err) {
+          return cb(err);
+        } else {
+          return cb(null);
+        }
+      });
     })
   }, forge_version);
 }
 
 /**
  * Launch a profile
- * @todo async
+ *
+ * @param {name} String - Name of the profile, should be same as installed name
+ * @param {stdout} Function - called on stdout of launcher instance.
+ * @param {stderr} Function - called on stderr of launcher instance.
+ * @param {cb} Function - callback
  **/
-mmd.prototype.launchProfile = function(name) {
+mmd.prototype.launchProfile = function(name, stdout, stderr, cb) {
   var dir          = path.join(this.minecraft_envs, name),
       that         = this,
       forge_opts   = '',
       natives_path = path.join(dir, 'natives'),
       exec         = chldpro.spawn;
 
+  // launcher variables
+  var forge_jar,
+      forge_info,
+      main_class,
+      manifest,
+      version,
+      vmanifest,
+      vnatives,
+      vlibs,
+      version_jar,
+      launcher;
+
+  // user related variables
+  var auth,
+      my_uuid,
+      my_at,
+      my_ct,
+      my_un;
+
+  // verify the profile exists.
   if(!fs.existsSync(dir)) {
-    console.log('ERRNOTEXIST');
-    return;
+    return cb('PROFILENOTFOUND');
   }
 
-  // TODO: PLEASSEEE work on try catch here
-  var forge_jar = '';
-  var manifest = JSON.parse(fs.readFileSync(dir+'/profile.json', 'utf8'));
-  var version = manifest.mc_version;
-  var vmanifest = JSON.parse(fs.readFileSync(path.join(this.minecraft_vers, version, version+'.json'), 'utf8'));
-  var vnatives= JSON.parse(fs.readFileSync(path.join(this.minecraft_vers, version, version+'-natives.json'), 'utf8'));
-  var vlibs = JSON.parse(fs.readFileSync(path.join(this.minecraft_vers, version, version+'-libs.json'), 'utf8'));
-  var version_jar = path.join(this.minecraft_vers, version, version+'.jar');
+  try {
+    forge_jar = '';
+    manifest = JSON.parse(fs.readFileSync(dir+'/profile.json', 'utf8'));
+    version = manifest.mc_version;
+    vmanifest = JSON.parse(fs.readFileSync(path.join(this.minecraft_vers, version, version+'.json'), 'utf8'));
+    vnatives= JSON.parse(fs.readFileSync(path.join(this.minecraft_vers, version, version+'-natives.json'), 'utf8'));
+    vlibs = JSON.parse(fs.readFileSync(path.join(this.minecraft_vers, version, version+'-libs.json'), 'utf8'));
+    version_jar = path.join(this.minecraft_vers, version, version+'.jar');
+    main_class = 'net.minecraft.client.main.Main';
 
-  var auth = JSON.parse(fs.readFileSync(path.join(this.minecraft_dir, 'auth.json'), 'utf8'));
+    auth = JSON.parse(fs.readFileSync(path.join(this.minecraft_dir, 'auth.json'), 'utf8'));
+    my_uuid = auth.uuid;
+    my_at   = auth.accessToken;
+    my_ct   = auth.clientToken;
+    my_un   = auth.user;
 
-  var my_uuid = auth.uuid,
-      my_at   = auth.accessToken,
-      my_ct   = auth.clientToken,
-      my_un   = auth.user;
-
-  var main_class = 'net.minecraft.client.main.Main';
-
-  if(manifest.is_modded === true) {
-    forge_info = path.join(this.minecraft_vers, manifest.forge_version, manifest.forge_version+'.json');
-    main_class = new String(JSON.parse(fs.readFileSync(forge_info, 'utf8')).versionInfo.mainClass);
-    // main_class = 'net.minecraft.launchwrapper.Launch';
-    version = manifest.forge_version; // hacky, remove eventually
+    if(manifest.is_modded === true) {
+      forge_info = path.join(this.minecraft_vers, manifest.forge_version, manifest.forge_version+'.json');
+      main_class = new String(JSON.parse(fs.readFileSync(forge_info, 'utf8')).versionInfo.mainClass);
+      // main_class = 'net.minecraft.launchwrapper.Launch';
+      version = manifest.forge_version; // hacky, remove eventually
+    }
+  } catch(err) {
+    return cb(err);
   }
 
+  // extract the natives
   async.each(vnatives, function(file, callback) {
-    file.path += '.jar'; // add jar ext TODO: make this do it on download, not on instancing.
+    file.path += '.jar'; // TODO: on download, not instancing.
 
     console.log('[INFO]', 'extract '+file.name);
 
@@ -670,20 +752,17 @@ mmd.prototype.launchProfile = function(name) {
       path: natives_path
     }));
 
-    uzs.on('error', function() {
-      console.log(error);
-      throw 'extraction error, fatal.';
+    uzs.on('error', function(err) {
+      return callback(err);
     });
 
     uzs.on('close', function() {
       console.log('[INFO]', 'extracted '+file.name);
-      callback();
+      return callback();
     });
   }, function(err) {
     if(err) {
-      // do soemthing.
-      console.log(err);
-      return
+      return cb(err);
     }
 
     var java_args = [
@@ -720,43 +799,46 @@ mmd.prototype.launchProfile = function(name) {
     ];
 
     // net.minecraft.client.main.Main
+    // java args: console.log(that.java_binary, java_args.toString().replace(/\,/g, ' '));
 
-    console.log(that.java_binary, java_args.toString().replace(/\,/g, ' '));
-
-    var launcher = exec(that.java_binary, java_args, { cwd: dir });
-    launcher.stderr.on('data', function(data) {
-      console.log(data.toString());
-    })
-    launcher.stdout.on('data', function (data) {
-      console.log(data.toString());
-    });
+    try {
+      launcher = exec(that.java_binary, java_args, { cwd: dir });
+      launcher.stderr.on('data', stderr);
+      launcher.stdout.on('data', stdout);
+    } catch(err) {
+      return cb(err);
+    }
   });
 }
 
 /**
- * use forge!
+ * Download a forge instance.
  *
- * net.minecraft.launchwrapper.Launch
- * add forge to path
+ * @param {version} String - Forge version to use.
+ * @param {onProgress} Function - called on download progress.
+ * @param {cb} Function - called when forge is "installed", or on error.
  **/
 mmd.prototype.downloadForge = function(version, onProgress, cb) {
-  var base = path.join(this.minecraft_vers, version);
+  var base      = path.join(this.minecraft_vers, version),
+      save_jar  = path.join(this.minecraft_tmp, version+'-src.jar'),
+      ws        = fs.createWriteStream(save_jar);
 
+  var forge_url = 'http://files.minecraftforge.net/maven/net/minecraftforge/forge/'
+      forge_url += version+'/forge-'+version+'-installer.jar';
+
+  // create the director[y/ies]
   mkdirp.sync(base);
 
-  var save_jar = path.join(base, version+'-src.jar');
-  var ws = fs.createWriteStream(save_jar);
-
-  var forge_url = 'http://files.minecraftforge.net/maven/net/minecraftforge/forge/'+version+'/forge-'+version+'-installer.jar';
-
+  // download forge
   progress(request(forge_url), {
-    throttle: 100
+    throttle: 100 // only deliver progress statuses every 100ms
   }).on('progress', function(state) {
-    onProgress(null, state, path.basename(forge_url));
+    return onProgress(null, state, path.basename(forge_url));
   }).on('error', function(err) {
-    onProgress(err);
+    return onProgress(err);
   }).pipe(ws);
 
+  // when file is down being downloaded
   ws.on('close', function() {
     var uzs = fs.createReadStream(save_jar)
     .pipe(unzip.Parse())
@@ -765,6 +847,7 @@ mmd.prototype.downloadForge = function(version, onProgress, cb) {
       var type = entry.type; // 'Directory' or 'File'
       var size = entry.size;
 
+      // only extract install_profile.json
       if (fileName === "install_profile.json") {
         entry.pipe(fs.createWriteStream(path.join(base, version+'.json')));
       } else {
@@ -773,57 +856,61 @@ mmd.prototype.downloadForge = function(version, onProgress, cb) {
     });
 
     uzs.on('close', function() {
-      fs.unlink(save_jar); // remove the source file
+      fs.unlink(save_jar, function(err) {
+        if(err) {
+          return cb('DELFAILFORGE'); // failed to delete forge jar file
+        }
 
-      if(fs.existsSync(path.join(base, version+'.json'))) {
-        cb('ERRINTEGRITY');
-        return;
-      }
+        if(fs.existsSync(path.join(base, version+'.json'))) {
+          return cb('ERRINTEGRITY');
+        }
 
-      // no issues
-      cb();
+        // no issues
+        return cb();
+      });
     });
   });
 }
 
 /**
  * Install a modpack by name
+ *
+ * @param {name} String - modpack name
+ * @param {onProgress} Function - called on progresss of download(s) every 100ms
+ * @param {onFinished} Function - called when modpack is installed or fails to.
  **/
 mmd.prototype.installModpack = function(name, onProgress, onFinished) {
   var that = this;
   this.get('modpack/'+name, {}, function(err, data) {
     if(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
     var dj;
     try {
       dj = JSON.parse(data);
     } catch(err) {
-      cb(err);
-      return;
+      return cb(err);
     }
 
     if(dj.success === false) {
-      cb("ERRNOTFOUND");
-      return;
+      return cb("ERRNOTFOUND");
     }
 
+    // create the director[y/ies]
     mkdirp.sync(that.minecraft_tmp);
-
 
     async.waterfall([
       function(cb) {
         console.log('[INFO]', 'installing forge version')
         that.downloadForge(dj.versions.forge, onProgress, function() {
-          cb();
+          return cb();
         });
       },
       function(cb) {
         console.log('[INFO]', 'installing mc, libs, and forge libs');
         that.createProfile(dj.name, dj.versions.mc, onProgress, function() {
-          cb();
+          return cb();
         }, dj.versions.forge);
       },
       function(cb) {
@@ -844,12 +931,13 @@ mmd.prototype.installModpack = function(name, onProgress, onFinished) {
             return callback('FATAL');
           }
 
-          var tmp = crypto.randomBytes(4).readUInt32LE(0);
-          var tmp_file_path = path.join(that.minecraft_tmp, tmp+'.zip');
-          var tmp_file = fs.createWriteStream(tmp_file_path);
+          var tmp           = crypto.randomBytes(4).readUInt32LE(0),
+              tmp_file_path = path.join(that.minecraft_tmp, tmp+'.zip').
+              tmp_file      = fs.createWriteStream(tmp_file_path);
 
           console.log('[INFO]', 'downloading type', modbun.type, 'from', modbun.uri);
 
+          // progress handler
           progress(request(modbun.uri), {
             throttle: 1
           }).on('progress', function(state) {
@@ -865,14 +953,15 @@ mmd.prototype.installModpack = function(name, onProgress, onFinished) {
               path: base_dir
             }));
 
-            uzs.on('error', function() {
-              // TODO: parse erorrs
+            uzs.on('error', function(err) {
+              // TODO: parse non-critical errors, i.e file already exists.
+              return callback(err);
             });
 
             uzs.on('close', function() {
               onProgress(null, { percent: 100 }, path.basename(modbun.uri));
               console.log('[INFO]', 'extracted type ', modbun.type, 'from {tmp}', tmp);
-              callback();
+              return callback();
             });
           });
         }, function(err) {
@@ -884,7 +973,7 @@ mmd.prototype.installModpack = function(name, onProgress, onFinished) {
         return onFinished(err);
       }
 
-      onFinished(null);
+      return onFinished(null);
     })
   });
 }

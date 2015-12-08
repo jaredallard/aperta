@@ -50,3 +50,7 @@
   float:right;
   font-size: 0.9em;
 }
+
+.page-inner {
+  padding:10px;
+}

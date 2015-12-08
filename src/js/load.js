@@ -12,7 +12,7 @@ if(DEBUG) {
   }
 }
 
-var mmd = require('./js/mmd.js'); // TODO: make a npm module.
+var mmd = require('./js/apertad.js'); // TODO: make a npm module.
 
 // instance it.
 var M = new mmd('mc.jaredallard.me:8080', '1', false);
