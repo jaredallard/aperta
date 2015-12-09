@@ -6,7 +6,7 @@ The Open Source, Security Driven, and extendable Minecraft Launcher.
 
 ## What is Aperta?
 
-A Minecraft launcher that supports vanilla, aswell as Forge!
+A Minecraft launcher that supports vanilla, as well as Forge!
 As for the name, Aperta means "open" in Latin.
 
 ## What does it support?
@@ -27,6 +27,13 @@ Lots!
 * Fully Material UI (it's all Material right now but not the best UI ever!)
 * FTB & ATL mod compatability.
 
+## How is versioning being handled?
+
+We are using Sematic versioning. Major.Minior.Revision.
+
+Each Major version is either; significant changes, or introduces breaking API changes.
+Each Minor version is a version with new changes, but with no breaking changes. Deprecations are introduced on this level.
+
 ## How do I use this? :(
 
 We currently have no pre-builts. This is because I just got this working, and the build
@@ -46,7 +53,8 @@ Lots of cool open source frameworks;
 * MDL (Google's Material Design kit)
 * Handlebars (Templating!)
 * Page.js (a single page framework I wrote that's under 100 lines!)
-* mmd.js (Minecraft Modded Daemon library, library for the mmd database)
+* apertad.js (Used to be known as MMD, the library for the aperta metadata service!)
+* minecraft.js (currently in apertad.js, but will be an open source npm module to interact with mojangs API and launch MC.)
 
 
 ## Wow! Cool! How can I help?

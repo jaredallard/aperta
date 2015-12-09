@@ -12,10 +12,10 @@ if(DEBUG) {
   }
 }
 
-var mmd = require('./js/apertad.js'); // TODO: make a npm module.
+var apertad = require('./js/apertad.js'); // TODO: make a npm module.
 
 // instance it.
-var M = new mmd('mc.jaredallard.me:8080', '1', false);
+var M = new apertad('mc.jaredallard.me:8080', '1', false);
 
 // init the ui library
 ui.init();

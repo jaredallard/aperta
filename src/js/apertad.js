@@ -2,13 +2,13 @@
  * Aperta Server Library and Minecraft Aspects
  *
  * @author Jared Allard <jaredallard@outlook.com>
- * @version 1.0.0
+ * @version 1.1-.0
  * @license MIT
- * @todo seperation of MC and mmd APIs
+ * @todo seperation of MC and apertad APIs
  * @todo use aync.waterfall [more than now]
  **/
 
-// NOTE: to use mmd with jQuery instead of request, just re-write request method
+// NOTE: to use apertad with jQuery instead of request, just re-write request method
 var request  = require('request'),
     fs       = require('fs'),
     chldpro  = require('child_process'),
@@ -19,15 +19,19 @@ var request  = require('request'),
     unzip    = require('unzip'),
     async    = require('async'),
     mkdirp   = require('mkdirp'),
+    pgp      = require('openpgp'),
     events   = require('events');
 
 /**
- * mmd
+ * apertad
  * @constructor
  **/
-var mmd = function(server_uri, version, secure) {
+var apertad = function(server_uri, version, secure) {
   this.api_version = version;
   this.templates = {};
+  this.pgp = {};
+  this.pgp.keyring = {};
+  this.pgp.master = {};
 
   server_uri = server_uri.replace(/\/$/g, ''); // remove trailing slash
   server_uri = server_uri.replace(/^https?:\/\//g, ''); // remove http(s)
@@ -49,7 +53,7 @@ var mmd = function(server_uri, version, secure) {
   if(fs.existsSync(minecraft_dir)) {
     minecraft_exists = true;
   } else {
-    console.log('[mmd]', 'mkdirp minecraft dir, wil say not exists.')
+    console.log('[apertad]', 'mkdirp minecraft dir, wil say not exists.')
     mkdirp.sync(minecraft_dir);
   }
 
@@ -105,13 +109,13 @@ var mmd = function(server_uri, version, secure) {
   this.events = new events.EventEmitter();
 
 
-  console.log('[mmd]', 'running on:', os_platform);
-  console.log('[mmd]', 'arch:', os_arch);
-  console.log('[mmd]', 'minecraft:', minecraft_dir);
-  // console.log('[mmd]', 'minecraft exists:', minecraft_exists);
-  console.log('[mmd]', 'java path:', java_dir+'/java');
-  console.log('[mmd]', 'server:', server_uri);
-  console.log('[mmd]', 'server endpoint:', '/v'+version);
+  console.log('[apertad]', 'running on:', os_platform);
+  console.log('[apertad]', 'arch:', os_arch);
+  console.log('[apertad]', 'minecraft:', minecraft_dir);
+  // console.log('[apertad]', 'minecraft exists:', minecraft_exists);
+  console.log('[apertad]', 'java path:', java_dir+'/java');
+  console.log('[apertad]', 'server:', server_uri);
+  console.log('[apertad]', 'server endpoint:', '/v'+version);
 
   this.minecraft_dir = minecraft_dir;
   this.minecraft_assets = path.join(minecraft_dir, 'assets');
@@ -134,7 +138,7 @@ var mmd = function(server_uri, version, secure) {
  * @param {params} Object - params to send in the body on anything but GET.
  * @param {callback} Function - on success or error
  **/
-mmd.prototype.request = function(method, url, params, cb) {
+apertad.prototype.request = function(method, url, params, cb) {
   method = method.toUpperCase();
   url = url.replace(/\/$/g, '');
   url = this.server+'/'+url;
@@ -161,13 +165,13 @@ mmd.prototype.request = function(method, url, params, cb) {
   var isJsonData = false;
   var body = params;
   if(Object.prototype.toString.call(params) === "[object Object]" && method !== 'GET') {
-    console.log('[mmd]', 'is json')
+    console.log('[apertad]', 'is json')
     isJsonData = true
   } else {
     body = ''; // hack fix to fix GET body
   }
 
-  console.log('[mmd]', method, url)
+  console.log('[apertad]', method, url)
   request({
     method: method,
     uri: url,
@@ -182,21 +186,129 @@ mmd.prototype.request = function(method, url, params, cb) {
   });
 }
 
-mmd.prototype.get = function (url, params, cb) {
+apertad.prototype.get = function (url, params, cb) {
   this.request('GET', url, params, cb);
 };
 
-mmd.prototype.post = function(url, params, cb) {
+apertad.prototype.post = function(url, params, cb) {
   this.request('POST', url, params, cb);
 }
 
-mmd.prototype.put = function(url, params, cb) {
+apertad.prototype.put = function(url, params, cb) {
   this.request('PUT', url, params, cb);
 }
 
-mmd.prototype.delete = function(url, params, cb) {
+apertad.prototype.delete = function(url, params, cb) {
   this.request('DELETE', url, params, cb);
 }
+
+/**
+ * Set the key to be "ultimately trusted". This key is used to verify the
+ * authicity of all public keys retrieved from the aperta server.
+ * If this is incorrectly set, then all keys will fail to be imported from the
+ * server.
+ *
+ * @param {path} String - path to the master key, should be ascii-armored.
+ * @param {cb} Function - on success or error.
+ **/
+apertad.prototype.setPubKeySigningKey = function(path, cb) {
+  var that = this;
+
+  console.log('[CRTWRN]', 'master key has been requested to be changed.',
+              'Seeing this more than once should be reported to the devs immediatly.');
+  fs.exists(path, function(exists) {
+    if(!exists) {
+      return cb('ERRNOTEXIST');
+    }
+
+    fs.readFile(path, 'utf8', function(data) {
+      var fingerprint,
+          pgp_key;
+
+      try {
+        var pgpdata = pgp.key.readArmored(data);
+        var pgp_key = pgpdata.keys[0].primaryKey; // this may need to be adjusted for single RSA keys?
+        fingerprint = pgp_key.fingerprint;
+
+        // set this as the master key.
+        that.pgp.master.fingerprint = fingerprint
+        that.pgp.master.key = pgp_key;
+      } catch(err) {
+        return cb(err);
+      }
+    })
+  })
+};
+
+/**
+ * Obtain and verify a public key by it's fingerprint, and insert it
+ * into the keyring.
+ * Currently the only supported method of obtaining a public key.
+ *
+ * @param {fingerprint} String - fingerprint of the key
+ * @param {cb} Function - on success or error.
+ * @callback {cb} err, openpgp::Key
+ *
+ * @todo lookup syntax for JSDoc callbacks
+ **/
+apertad.prototype.getPubKeyByFingerPrint = function(fingerprint, cb) {
+  this.get('pubkey/'+fingeprint, {}, function(err, data) {
+    if(err) {
+      return cb(err);
+    }
+
+    // verify that the key has an actual signature cross referencing the master key
+  });
+};
+
+/**
+ * Insert openpgp::Key into global keyring.
+ *
+ * @param {key} openpgp::Key - key to insert into keyring.
+ * @param {cb} Function - on success or error
+ **/
+apertad.prototype.insertPubkeyIntoKeyring = function(key, cb) {
+  // verify it is an actual pgp finerprint.
+  // TODO: verify we have to refer to the method key.primaryKey
+  this.pgp.keyring[key.primaryKey.fingerprint] = key;
+}
+
+/**
+ * Dump the keyring to a file.
+ *
+ * @param {cb} String - on success or error.
+ **/
+apertad.prototype.dumpKeyring = function(cb) {
+
+}
+
+/**
+ * Rebuild the keyring from a keyring archive.
+ *
+ * @param {cb} Function - on success or error
+ **/
+apertad.prototype.restoreKeyring = function(cb) {
+
+}
+
+/**
+ * Get a public key from the keystore by it's fingerprint, if it exists.
+ *
+ * @param {fingeprint} String - the fingerprint of the requested public key.
+ **/
+apertad.prototype.getPubKeyFromKeyringByFingerprint = function(fingerprint) {
+  return this.pgp.keyring[fingerprint];
+}
+
+/**
+ * Verify a file by it's signature.
+ *
+ * @param {file_path} String - path to the file to be validated.
+ * @param {file_sig} String - path to the file's signature.
+ **/
+apertad.prototype.verifySignature = function(file_path, file_sig, cb) {
+
+};
 
 /**
  * Get minecraft access tokens
@@ -205,7 +317,7 @@ mmd.prototype.delete = function(url, params, cb) {
  * @param {password} String - plaintext user password
  * @param {callback} Function - on success or error
  **/
-mmd.prototype.mc_getClientAndAccess = function(username, password, callback) {
+apertad.prototype.mc_getClientAndAccess = function(username, password, callback) {
   if(callback === undefined) {
     callback = function() {};
   }
@@ -230,6 +342,7 @@ mmd.prototype.mc_getClientAndAccess = function(username, password, callback) {
     }
 
     var uuidDash = function(uuid) {
+      // TODO: make regex cleaner.z
       return uuid.replace(/([a-zA-Z0-9]{8})([a-zA-Z0-9]{4})([a-zA-Z0-9]{4})([a-zA-Z0-9]{4})([a-zA-Z0-9]{12})/, "$1-$2-$3-$4-$5");
     }
 
@@ -260,7 +373,7 @@ mmd.prototype.mc_getClientAndAccess = function(username, password, callback) {
 /**
  * Get the list of versions
  **/
-mmd.prototype.mc_getVersions = function() {
+apertad.prototype.mc_getVersions = function() {
   var that = this;
   request({
     method: 'GET',
@@ -288,7 +401,7 @@ mmd.prototype.mc_getVersions = function() {
  * @param {version} String - minecraft index version
  * @param {cb} Function - on success or error
  **/
-mmd.prototype.mc_getAssets = function(version, cb) {
+apertad.prototype.mc_getAssets = function(version, cb) {
   var that = this;
   request({
     method: 'GET',
@@ -320,7 +433,7 @@ mmd.prototype.mc_getAssets = function(version, cb) {
  * @todo cleanup
  * @todo async.waterfall?
  **/
-mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
+apertad.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
   var sl   = path.join(this.minecraft_vers, version),
       sjs  = path.join(sl, version+'.json'),
       sja  = path.join(sl, version+'.jar'),
@@ -534,7 +647,7 @@ mmd.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
  * @param {onProgrss} Function - called on progress every 100ms
  * @param {cb} Function - called on success or error
  **/
-mmd.prototype.downloadVersionAssets = function(version, onProgress, cb) {
+apertad.prototype.downloadVersionAssets = function(version, onProgress, cb) {
   var that = this;
 
   if(fs.existsSync(path.join(this.minecraft_assets, 'indexes', version+'.json'))) {
@@ -618,7 +731,7 @@ mmd.prototype.downloadVersionAssets = function(version, onProgress, cb) {
  *
  * @todo async.waterfall
  **/
-mmd.prototype.createProfile = function(name, version, onProgress, cb, forge_version) {
+apertad.prototype.createProfile = function(name, version, onProgress, cb, forge_version) {
   var that = this,
       dir  = path.join(this.minecraft_envs, name);
 
@@ -684,7 +797,7 @@ mmd.prototype.createProfile = function(name, version, onProgress, cb, forge_vers
  * @param {stderr} Function - called on stderr of launcher instance.
  * @param {cb} Function - callback
  **/
-mmd.prototype.launchProfile = function(name, stdout, stderr, cb) {
+apertad.prototype.launchProfile = function(name, stdout, stderr, cb) {
   var dir          = path.join(this.minecraft_envs, name),
       that         = this,
       forge_opts   = '',
@@ -734,7 +847,6 @@ mmd.prototype.launchProfile = function(name, stdout, stderr, cb) {
     if(manifest.is_modded === true) {
       forge_info = path.join(this.minecraft_vers, manifest.forge_version, manifest.forge_version+'.json');
       main_class = new String(JSON.parse(fs.readFileSync(forge_info, 'utf8')).versionInfo.mainClass);
-      // main_class = 'net.minecraft.launchwrapper.Launch';
       version = manifest.forge_version; // hacky, remove eventually
     }
   } catch(err) {
@@ -818,7 +930,7 @@ mmd.prototype.launchProfile = function(name, stdout, stderr, cb) {
  * @param {onProgress} Function - called on download progress.
  * @param {cb} Function - called when forge is "installed", or on error.
  **/
-mmd.prototype.downloadForge = function(version, onProgress, cb) {
+apertad.prototype.downloadForge = function(version, onProgress, cb) {
   var base      = path.join(this.minecraft_vers, version),
       save_jar  = path.join(this.minecraft_tmp, version+'-src.jar'),
       ws        = fs.createWriteStream(save_jar);
@@ -879,7 +991,7 @@ mmd.prototype.downloadForge = function(version, onProgress, cb) {
  * @param {onProgress} Function - called on progresss of download(s) every 100ms
  * @param {onFinished} Function - called when modpack is installed or fails to.
  **/
-mmd.prototype.installModpack = function(name, onProgress, onFinished) {
+apertad.prototype.installModpack = function(name, onProgress, onFinished) {
   var that = this;
   this.get('modpack/'+name, {}, function(err, data) {
     if(err) {
@@ -979,9 +1091,9 @@ mmd.prototype.installModpack = function(name, onProgress, onFinished) {
 }
 
 // copy and paste usage, this is here purely because of the hell that is programming in nw.js
-// var m = require('./js/mmd.js'); var o = new m('127.0.0.1', '1', false);
-// var m = require('./js/mmd.js'); var o = new m('127.0.0.1', '1', false); o.createProfile('test', '1.7.10', function() {}, '1.7.10-10.13.4.1566-1.7.10')
-// var m = require('./js/mmd.js'); var o = new m('127.0.0.1', '1', false); o.launchProfile('test');
-// var m = require('./js/mmd.js'); var o = new m('127.0.0.1', '1', false); o.installModpack('rdelro')
+// var m = require('./js/apertad.js'); var o = new m('127.0.0.1', '1', false);
+// var m = require('./js/apertad.js'); var o = new m('127.0.0.1', '1', false); o.createProfile('test', '1.7.10', function() {}, '1.7.10-10.13.4.1566-1.7.10')
+// var m = require('./js/apertad.js'); var o = new m('127.0.0.1', '1', false); o.launchProfile('test');
+// var m = require('./js/apertad.js'); var o = new m('127.0.0.1', '1', false); o.installModpack('rdelro')
 
-module.exports = mmd;
+module.exports = apertad;

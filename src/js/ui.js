@@ -23,6 +23,10 @@ window.ui = {
   loginError: function() {
     $('.mdl-textfield').addClass('is-invalid');
   },
+  mainError: function(error) {
+    // TODO
+    // show errors using this function.
+  },
   doLogin: function() {
     debug('ui', 'do login');
 
@@ -80,14 +84,16 @@ window.ui = {
     }
   },
   installMod: function(elem) {
-    var modpack = $(elem).attr('data-name');
+    var that    = this,
+        modpack = $(elem).attr('data-name');
+
     console.log('[ui]', 'asked to install mod:', modpack);
 
     $('.progress-wrapper').show();
 
     M.installModpack(modpack, function(err, state, filename) {
       if(err) {
-        console.log(err);
+        that.mainError('failed to install modpack!')
         return;
       }
 
