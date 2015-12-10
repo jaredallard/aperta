@@ -7,8 +7,13 @@ var DEBUG=true;
 if(DEBUG) {
   var gui = require('nw.gui');
   var win = gui.Window.get();
-  if(!win.isDevToolsOpen()) {
-    win.showDevTools();
+
+  try {
+    if(!win.isDevToolsOpen()) {
+      win.showDevTools();
+    }
+  } catch(err) {
+    // win.showDevTools // nwjs-13-alpha7 support
   }
 }
 
@@ -20,7 +25,9 @@ var M = new apertad('mc.jaredallard.me:8080', '1', false);
 // init the ui library
 ui.init();
 
-if(page) { // we're the launcher!
+var page = page;
+
+if(page) {
   page.register({
     name: 'mods',
     title: 'Mods',

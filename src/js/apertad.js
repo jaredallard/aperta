@@ -451,14 +451,36 @@ apertad.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
   mc_version_base = 'http://s3.amazonaws.com/Minecraft.Download/versions/';
   mc_version_base += version+'/'+version;
 
-  request.get(mc_version_jar).pipe(output);
+  mc_version_jar = mc_version_base+'.jar';
+  mc_version_json = mc_version_base+'.json';
+
+  progress(request(mc_version_jar), {
+    throttle: 100
+  }).on('progress', function(state) {
+    onProgress(null, state, path.basename(mc_version_jar));
+  }).on('error', function(err) {
+    console.log('[WARN]', 'request states error on downloading: ', lib_name, lib_ver)
+    return onProgress(err);
+  }).pipe(output);
+
   output.on('close', function() {
-    console.log('downloaded:', version+'.jar');
+    onProgress(null, { percent: 100 }, path.basename(mc_version_jar));
 
     var output = fs.createWriteStream(sjs);
-    request.get(mc_version_json).pipe(output);
+
+    progress(request(mc_version_json), {
+      throttle: 100
+    }).on('progress', function(state) {
+      onProgress(null, state, path.basename(mc_version_json));
+    }).on('error', function(err) {
+      console.log('[WARN]', 'request states error on downloading: ', lib_name, lib_ver)
+      return onProgress(err);
+    }).pipe(output);
+
     output.on('close', function() {
       console.log('downloaded:', version+'.json');
+
+      onProgress(null, { percent: 100 }, path.basename(mc_version_json));
 
       try {
         var lc = fs.readFileSync(sjs, 'utf8');
@@ -627,7 +649,7 @@ apertad.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
             return cb(err);
           }
 
-          fs.writeFileSync(path.join(that.minecraft_vers, version, version+'-libs.json'), JSON.stringify(non_natives), 'utf8', function(err) {
+          fs.writeFile(path.join(that.minecraft_vers, version, version+'-libs.json'), JSON.stringify(non_natives), 'utf8', function(err) {
             if(err) {
               return cb(err);
             }
@@ -914,9 +936,23 @@ apertad.prototype.launchProfile = function(name, stdout, stderr, cb) {
     // java args: console.log(that.java_binary, java_args.toString().replace(/\,/g, ' '));
 
     try {
+      if(!stdout) {
+        stdout = function() {
+
+        };
+      }
+      if(!stderr) {
+        stderr = function() {
+
+        }
+      }
+
       launcher = exec(that.java_binary, java_args, { cwd: dir });
       launcher.stderr.on('data', stderr);
       launcher.stdout.on('data', stdout);
+      launcher.on('close', function() {
+        return cb();
+      });
     } catch(err) {
       return cb(err);
     }
@@ -940,8 +976,10 @@ apertad.prototype.downloadForge = function(version, onProgress, cb) {
 
   // create the director[y/ies]
   mkdirp.sync(base);
+  mkdirp.sync(path.basename(save_jar));
 
   // download forge
+  console.log('[apertad]', 'GET', forge_url)
   progress(request(forge_url), {
     throttle: 100 // only deliver progress statuses every 100ms
   }).on('progress', function(state) {
@@ -971,10 +1009,6 @@ apertad.prototype.downloadForge = function(version, onProgress, cb) {
       fs.unlink(save_jar, function(err) {
         if(err) {
           return cb('DELFAILFORGE'); // failed to delete forge jar file
-        }
-
-        if(fs.existsSync(path.join(base, version+'.json'))) {
-          return cb('ERRINTEGRITY');
         }
 
         // no issues
@@ -1015,14 +1049,15 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
     async.waterfall([
       function(cb) {
         console.log('[INFO]', 'installing forge version')
-        that.downloadForge(dj.versions.forge, onProgress, function() {
-          return cb();
+        that.downloadForge(dj.versions.forge, onProgress, function(err) {
+          return cb(err);
         });
       },
       function(cb) {
         console.log('[INFO]', 'installing mc, libs, and forge libs');
-        that.createProfile(dj.name, dj.versions.mc, onProgress, function() {
-          return cb();
+        that.createProfile(dj.name, dj.versions.mc, onProgress, function(err) {
+          console.log(err);
+          return cb(err);
         }, dj.versions.forge);
       },
       function(cb) {
@@ -1033,6 +1068,10 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
         console.log('[INFO]', 'installing modpack mods');
 
         async.each(dj.files, function(modbun, callback) {
+          //console.log(modbun);
+          //console.log(dj);
+          //console.log(dj.name);
+
           var base_dir;
           if(modbun.type === 'mods') {
             base_dir = path.join(that.minecraft_envs, dj.name, 'mods');
@@ -1043,11 +1082,17 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
             return callback('FATAL');
           }
 
-          var tmp           = crypto.randomBytes(4).readUInt32LE(0),
-              tmp_file_path = path.join(that.minecraft_tmp, tmp+'.zip').
-              tmp_file      = fs.createWriteStream(tmp_file_path);
+          var tmp = crypto.randomBytes(4).readUInt32LE(0);
 
-          console.log('[INFO]', 'downloading type', modbun.type, 'from', modbun.uri);
+          //console.log('[apertad]', 'DEBUG', 'tmp is', tmp);
+
+          var tmp_file_path = path.join(that.minecraft_tmp, tmp+'.zip');
+
+          //console.log('[apertad]', 'DEBUG', tmp_file_path);
+
+          var tmp_file      = fs.createWriteStream(tmp_file_path);
+
+          //console.log('[INFO]', 'downloading type', modbun.type, 'from', modbun.uri);
 
           // progress handler
           progress(request(modbun.uri), {

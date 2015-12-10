@@ -93,6 +93,7 @@ window.ui = {
 
     M.installModpack(modpack, function(err, state, filename) {
       if(err) {
+        console.log(err);
         that.mainError('failed to install modpack!')
         return;
       }
