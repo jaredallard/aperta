@@ -23,6 +23,7 @@ by whomever posts them
 Lots!
 
 * P2P (plausable denyability)
+* PGP Verification of modpack files, including verification of pub keys supplied.
 * /v2 API supporting users being able to publish mods (/v1 only allows me currently (no auth system))
 * Fully Material UI (it's all Material right now but not the best UI ever!)
 * FTB & ATL mod compatability.
