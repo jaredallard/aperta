@@ -11,6 +11,10 @@ RequiresAuthentication: `true`
 Authentication: param, or in body as `api-key`
 
 Notes: API Keys are given by request, until `v2` of the API.
+      File sig attributes must be a **cleartext** signature of a sha512 sum of the file.
+
+TODO: example command line of how to generate a signature.
+
 
 ```json
 {

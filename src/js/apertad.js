@@ -240,8 +240,8 @@ apertad.prototype.setPubKeySigningKey = function(path, cb) {
 
       try {
         var pgpdata = pgp.key.readArmored(data);
-        var pgp_key = pgpdata.keys[0].primaryKey; // this may need to be adjusted for single RSA keys?
-        fingerprint = pgp_key.fingerprint;
+        var pgp_key = pgpdata.keys; // this may need to be adjusted for single RSA keys?
+        fingerprint = pgp_key[0].primaryKey.fingerprint;
 
         // set this as the master key.
         that.pgp.master.fingerprint = fingerprint
@@ -281,19 +281,32 @@ apertad.prototype.getPubKeyByFingerPrint = function(fingerprint, cb) {
     }
 
     try {
-      var pubkey = pgp.key.readArmored(data.data).keys[0];
-      var clearMessage = pgp.cleartext.readArmored(data.signature);
+      // parse the clearsignature
+      var clearMessage = data.signature;
+      var clearMessageDecoded = new Buffer(clearMessage, 'base64').toString('ascii');
+      var clearMessagePgp = pgp.cleartext.readArmored(clearMessageDecoded);
+
+      // get the public key from the body
+      var pubkeyDecodedSO = new Buffer(clearMessagePgp.text, 'base64').toString('ascii');
+      var pubkeyDecodedST = new Buffer(pubkeyDecodedSO, 'base64').toString('ascii');
+      var pubkeyPgp = pgp.key.readArmored(pubkeyDecodedST);
 
       // verify the public keys signature.
-      pgp.verifyClearSignedMessage(pubkey, clearMessage).then(function(sigCheck){
+      pgp.verifyClearSignedMessage(that.pgp.master.key, clearMessagePgp).then(function(sigCheck){
         // insert the key intro our keyring.
         if(sigCheck.signatures[0].valid) {
-          that.insertPubkeyIntoKeyring(pubkey, function() {
+          that.insertPubkeyIntoKeyring(pubkeyPgp.keys[0], function() {
+            console.log('[apertad]', 'got a valid signature from:', pubkeyPgp.keys[0].users[0].userId.userid);
+            console.log('[apertad]', 'signing fingerprint:', that.pgp.master.fingerprint);
+            console.log('[apertad]', 'new pubkey fingerprint: ', pubkeyPgp.keys[0].primaryKey.fingerprint);
             return cb(null);
           });
         } else {
           return cb('ERRSIGINVALID');
         }
+      }).catch(function(err) {
+        console.log(err);
+        return cb(err);
       });
     } catch(err) {
       return cb(err);
@@ -311,6 +324,7 @@ apertad.prototype.insertPubkeyIntoKeyring = function(key, cb) {
   // verify it is an actual pgp finerprint.
   // TODO: verify we have to refer to the method key.primaryKey
   this.pgp.keyring[key.primaryKey.fingerprint] = key;
+  return cb();
 }
 
 /**

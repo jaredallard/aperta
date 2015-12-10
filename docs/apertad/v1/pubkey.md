@@ -28,7 +28,6 @@ Notes: Server pubkey is provided in the git tree, and is bundled with releases.
 ```json
 {
   "fingerprint": "08f2c568bc62c07b4f333636dbe0757f25126975",
-  "data": "public_key ASCII-armored",
-  "signature": "signature of the public key, signed by the server key"
+  "signature": "cleartext signature of the base64 encoded public key, signature is base64 encoded as well."
 }
 ```
