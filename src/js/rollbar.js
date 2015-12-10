@@ -1,4 +1,4 @@
-var IN_DEV = false; // if you do not want to take part in rollbar, change this to true!
+var IN_DEV = true; // if you do not want to take part in rollbar, change this to true!
 
 if(IN_DEV === false) {
   var _rollbarConfig = {

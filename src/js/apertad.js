@@ -49,6 +49,15 @@ var apertad = function(server_uri, version, secure) {
     minecraft_dir = path.join(path.dirname(require.main.filename), minecraft_dir);
   }
 
+  var _masterkey = path.join(path.dirname(require.main.filename), 'apertad/apertad.pub');
+  this.setPubKeySigningKey(_masterkey, function(err) {
+    if(err) {
+      console.log(err);
+    }
+
+    console.log('[apertad]', 'set master key');
+  })
+
   var minecraft_exists = false;
   if(fs.existsSync(minecraft_dir)) {
     minecraft_exists = true;
@@ -221,7 +230,11 @@ apertad.prototype.setPubKeySigningKey = function(path, cb) {
       return cb('ERRNOTEXIST');
     }
 
-    fs.readFile(path, 'utf8', function(data) {
+    fs.readFile(path, 'utf8', function(err, data) {
+      if(err) {
+        return cb(err);
+      }
+
       var fingerprint,
           pgp_key;
 
@@ -236,6 +249,8 @@ apertad.prototype.setPubKeySigningKey = function(path, cb) {
       } catch(err) {
         return cb(err);
       }
+
+      return cb(null);
     })
   })
 };
@@ -252,12 +267,37 @@ apertad.prototype.setPubKeySigningKey = function(path, cb) {
  * @todo lookup syntax for JSDoc callbacks
  **/
 apertad.prototype.getPubKeyByFingerPrint = function(fingerprint, cb) {
-  this.get('pubkey/'+fingeprint, {}, function(err, data) {
+  var that = this;
+
+  this.get('pubkey/'+fingerprint, {}, function(err, data) {
     if(err) {
       return cb(err);
     }
 
-    // verify that the key has an actual signature cross referencing the master key
+    try {
+      data = JSON.parse(data);
+    } catch(err) {
+      return cb(err);
+    }
+
+    try {
+      var pubkey = pgp.key.readArmored(data.data).keys[0];
+      var clearMessage = pgp.cleartext.readArmored(data.signature);
+
+      // verify the public keys signature.
+      pgp.verifyClearSignedMessage(pubkey, clearMessage).then(function(sigCheck){
+        // insert the key intro our keyring.
+        if(sigCheck.signatures[0].valid) {
+          that.insertPubkeyIntoKeyring(pubkey, function() {
+            return cb(null);
+          });
+        } else {
+          return cb('ERRSIGINVALID');
+        }
+      });
+    } catch(err) {
+      return cb(err);
+    }
   });
 };
 
@@ -1067,63 +1107,66 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
 
         console.log('[INFO]', 'installing modpack mods');
 
-        async.each(dj.files, function(modbun, callback) {
-          //console.log(modbun);
-          //console.log(dj);
-          //console.log(dj.name);
+        var downloadModpack = function() {
+          async.each(dj.files, function(modbun, callback) {
+            var base_dir;
+            if(modbun.type === 'mods') {
+              base_dir = path.join(that.minecraft_envs, dj.name, 'mods');
+            } else if (modbun.type === 'config') {
+              base_dir = path.join(that.minecraft_envs, dj.name, 'config');
+            } else {
+              console.warn('[DANGER]', 'module type was NOT expected to be', modbun.type);
+              return callback('FATAL');
+            }
 
-          var base_dir;
-          if(modbun.type === 'mods') {
-            base_dir = path.join(that.minecraft_envs, dj.name, 'mods');
-          } else if (modbun.type === 'config') {
-            base_dir = path.join(that.minecraft_envs, dj.name, 'config');
-          } else {
-            console.warn('[DANGER]', 'module type was NOT expected to be', modbun.type);
-            return callback('FATAL');
-          }
+            var tmp = crypto.randomBytes(4).readUInt32LE(0);
+            var tmp_file_path = path.join(that.minecraft_tmp, tmp+'.zip');
+            var tmp_file      = fs.createWriteStream(tmp_file_path);
 
-          var tmp = crypto.randomBytes(4).readUInt32LE(0);
+            // progress handler
+            progress(request(modbun.uri), {
+              throttle: 1
+            }).on('progress', function(state) {
+              onProgress(null, state, path.basename(modbun.uri));
+            }).on('error', function(err) {
+              onProgress(err);
+            }).pipe(tmp_file);
 
-          //console.log('[apertad]', 'DEBUG', 'tmp is', tmp);
+            tmp_file.on('close', function() {
+              console.log('[INFO]', 'extracting type', modbun.type, 'from {tmp}', tmp);
+              var uzs = fs.createReadStream(tmp_file_path)
+              .pipe(unzip.Extract({
+                path: base_dir
+              }));
 
-          var tmp_file_path = path.join(that.minecraft_tmp, tmp+'.zip');
+              uzs.on('error', function(err) {
+                // TODO: parse non-critical errors, i.e file already exists.
+                return callback(err);
+              });
 
-          //console.log('[apertad]', 'DEBUG', tmp_file_path);
-
-          var tmp_file      = fs.createWriteStream(tmp_file_path);
-
-          //console.log('[INFO]', 'downloading type', modbun.type, 'from', modbun.uri);
-
-          // progress handler
-          progress(request(modbun.uri), {
-            throttle: 1
-          }).on('progress', function(state) {
-            onProgress(null, state, path.basename(modbun.uri));
-          }).on('error', function(err) {
-            onProgress(err);
-          }).pipe(tmp_file);
-
-          tmp_file.on('close', function() {
-            console.log('[INFO]', 'extracting type', modbun.type, 'from {tmp}', tmp);
-            var uzs = fs.createReadStream(tmp_file_path)
-            .pipe(unzip.Extract({
-              path: base_dir
-            }));
-
-            uzs.on('error', function(err) {
-              // TODO: parse non-critical errors, i.e file already exists.
-              return callback(err);
+              uzs.on('close', function() {
+                onProgress(null, { percent: 100 }, path.basename(modbun.uri));
+                console.log('[INFO]', 'extracted type ', modbun.type, 'from {tmp}', tmp);
+                return callback();
+              });
             });
-
-            uzs.on('close', function() {
-              onProgress(null, { percent: 100 }, path.basename(modbun.uri));
-              console.log('[INFO]', 'extracted type ', modbun.type, 'from {tmp}', tmp);
-              return callback();
-            });
+          }, function(err) {
+            cb(err);
           });
-        }, function(err) {
-          cb(err);
-        });
+        }
+
+        if(dj.pgp) {
+          if(dj.pgp.fingerprint) {
+            that.getPubKeyByFingerPrint(dj.pgp.fingerprint, function(err) {
+              if(err) {
+                return console.log(err);
+              }
+
+              console.log('[apertad]', 'PGP (fingerprint)', dj.pgp.fingerprint,
+                'successfully imported.')
+            })
+          }
+        }
       }
     ], function(err) {
       if(err) {
