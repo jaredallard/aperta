@@ -1102,6 +1102,18 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
 
     async.waterfall([
       function(cb) {
+        console.log('[INFO]', 'fetching public key if modpack uses one.')
+        if(dj.pgp) {
+          that.getPubKeyByFingerPrint(dj.pgp.fingerprint, function(err) {
+            if(err) {
+              return cb(err);
+            }
+
+            return cb();
+          });
+        }
+      },
+      function(cb) {
         console.log('[INFO]', 'installing forge version')
         that.downloadForge(dj.versions.forge, onProgress, function(err) {
           return cb(err);
@@ -1169,18 +1181,7 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
           });
         }
 
-        if(dj.pgp) {
-          if(dj.pgp.fingerprint) {
-            that.getPubKeyByFingerPrint(dj.pgp.fingerprint, function(err) {
-              if(err) {
-                return console.log(err);
-              }
-
-              console.log('[apertad]', 'PGP (fingerprint)', dj.pgp.fingerprint,
-                'successfully imported.')
-            })
-          }
-        }
+        return downloadModpack();
       }
     ], function(err) {
       if(err) {
