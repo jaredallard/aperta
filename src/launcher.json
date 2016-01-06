@@ -16,6 +16,9 @@
   "window": {
     "height": 546,
     "width": 1025,
+    "frame": false,
+    "toolbar": false,
+    "transparent": true,
     "resizeable": false
   }
 }

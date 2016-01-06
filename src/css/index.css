@@ -1,56 +1,266 @@
-
-.mdl-card__title {
-  background-color: rgba(0,0,0,0.5);
-}
-
-.progress-wrapper {
+html,
+body {
   height:100%;
   width:100%;
-  z-index:1000;
-  position:fixed;
-  top:0;
-  bottom:0;
-  right:0;
-  left:0;
-  background-color: rgba(255,255,255,0.5);
+
+  -webkit-user-select:none;
+  -ms-user-select:none;
+  user-select:none;
+
+  overflow:hidden;
+
+  font-family: 'Montserrat', sans-serif !important;
 }
 
-.progress-object {
-  width:300px;
-  height:70px;
-
-  position: relative;
-  top: 50%;
-  transform: translateY(-50%);
-  margin:0 auto;
-  text-align:left;
+.launcher-wrapper {
+  width:100%;
+  height:100%;
 
   -webkit-box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
   -moz-box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
   box-shadow: 0px 0px 7px 3px rgba(0,0,0, 0.15);
-
-  background-color: white;
 }
 
-.progress-inner {
+.header {
+  width:100%;
+  height:50px;
+
+  -webkit-app-region:drag;
+
+  border-bottom: 1px solid #eeeeee; /** border shadow? **/
+}
+
+/** close **/
+.login-drag-close {
+  float:right;
+  padding-right:10px;
+  padding-top:13px;
+  text-align: center;
+  -webkit-app-region: no-drag;
+}
+
+.login-drag-close i {
+  font-size:1.5em;
+  color:#bebebe;
+}
+
+/** image "avatar" **/
+.login-image {
+  float:left;
+  margin-top:10px;
+  margin-left:10px;
+  text-align: center;
+  -webkit-app-region: no-drag;
+}
+
+.login-image i {
+  float:left;
+  font-size:2em;
+  color:#bebebe;
+}
+
+.login-image p {
+  padding-left:5px;
+  padding-top:5px;
+  font-weight: 700;
+  color:#95a5a6;
+  float:left;
+}
+
+.content-wrapper {
+  width:100%;
+  height: calc(100% - 50px);
+}
+
+.sidebar,
+.body {
+  height:100%;
+}
+
+.sidebar {
+  width:275px;
+  float:left;
+
+  border-right: 1px solid #eeeeee; /** TODO: use a lighter shade of grey **/
+}
+
+.sidebar-title {
+  font-size:1.0em;
+  color:#7f8c8d;
+  padding-left:15px;
+}
+
+.body {
+  background-color:#fbfbfb;
+  width: calc(100% - 275px);
+  float:right;
+}
+
+.mod-installed-container {
+  height:100%;
+}
+
+.mod-installed {
+  width:100%;
+  height:75px;
+}
+
+.mod-installed-icon {
+  float:left;
+  padding-top:20px;
+  padding-left: 10px;
+  height:30px;
+  width:auto;
+}
+
+.mod-installed-icon img {
+  height:30px;
+  width:30px;
+
+  border-radius: 50%;
+}
+
+.mod-installed-name {
+  font-size:13px;
+  font-weight:bold;
+
+  float:left;
+  padding-left: 10px;
+  padding-top:18.5px;
+}
+
+.mod-installed-version {
+  font-size:0.75em;
+  float:left;
+  color:grey;
+}
+
+/** Mod List **/
+
+.mod-list-container {
+  overflow-y:auto;
+
+  height:100%;
+  width:100%;
+}
+
+.mod-list-object {
+  padding:20px;
+  height:250px;
+}
+
+.mod-list-object-inner {
+  height:100%;
+  width:100%;
+
+  /* shadow */
+  box-shadow: 0px 1px 16px #eeeeee;
+   -moz-box-shadow: 0px 1px 16px #eeeeee;
+   -webkit-box-shadow: 0px 1px 16px #eeeeee;
+
+  background-color:#FFFFFF;
+}
+
+.mod-list-image {
+  position: relative;
+  width:40%;
+  height:100%;
+
+  float:left;
+
+  border-right: solid 1px #eeeeee;
+}
+
+.mod-list-image .overlay {
+  position:absolute;
+
+  height:100%;
+  width:100%;
+
+  background-color:rgba(0,0,0,0.4);
+}
+
+.mod-list-image img {
+  height:100%;
+  width:100%;
+}
+
+.mod-list-info-wrapper {
   position:relative;
 
-  padding:10px;
-  padding-top:30px;
-}
-
-.progress-inner-name {
-  padding-top:10px;
   float:left;
-  font-size: 0.9em;
+  max-width: 60%;
+  height:100%;
 }
 
-.progress-inner-number {
-  padding-top:10px;
-  float:right;
-  font-size: 0.9em;
-}
-
-.page-inner {
+.mod-list-info-inner {
   padding:10px;
+}
+
+.mod-list-info-name {
+  font-size:1.5em;
+  color: #000000;
+  font-weight: bold;
+}
+
+.mod-list-info-desc {
+  font-size:1em;
+  color:gray;
+}
+
+.mod-list-info-status {
+  position:absolute;
+
+  border-top: solid 1px #eeeeee;
+  height:50px;
+  width:100%;
+  bottom:0;
+}
+
+.mod-list-info-object {
+  float:left;
+  height:50px;
+  min-width: 50px;
+  width:auto;
+
+  line-height: 50px;
+  padding:0px 5px 5px 5px;
+  color:gray;
+}
+
+.mod-list-info-icon {
+  float:left;
+  padding-top:5.5px;
+  padding-right:5px;
+  display:block;
+}
+
+.mod-list-info-icon-desc {
+  float:left;
+  display:block;
+}
+
+.mod-list-info-install {
+  float:right;
+
+  margin-top:7px;
+  margin-right:10px;
+}
+
+.mod-list-info-install button {
+  border-radius: 0px !important;
+  background-color: rgba(0,0,0,0) !important;
+  border-color: #bebebe !important;
+  color:gray !important;
+}
+
+.mod-list-info-install button:hover {
+  background-color: #bebebe !important;
+  color: #FFFFFF !important;
+}
+
+.file-installing {
+  font-size:0.6em;
+  padding-right:5px;
+  max-width:50px;
 }

@@ -98,9 +98,11 @@ window.ui = {
         return;
       }
 
-      $('#p1na').text(filename.substr(0, 30));
-      $('#p1nu').text(state.percent+'/100');
-      document.querySelector('#p1').MaterialProgress.setProgress(state.percent);
+      // $('#p1na').text(filename.substr(0, 30));
+      // $('#p1nu').text(state.percent+'/100');
+
+      $(elem).children('.file-installing').html('PlzWait');
+      $(elem).children('button').html(state.percent+'%');
     }, function(err) {
       if(err) {
         console.log(err);
@@ -135,9 +137,9 @@ window.ui = {
       for(var i = 0; i !== mods.length; i++) {
         var mod = mods[i].value;
 
-        var installed_status = 'INSTALL'
+        var installed_status = 'Install';
         if(fs.existsSync(path.join(M.minecraft_envs, mod.name))) {
-          installed_status = 'LAUNCH';
+          installed_status = 'Launch';
         }
 
         $('#mods').append(ui.templates.mod({

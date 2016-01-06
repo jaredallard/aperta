@@ -2,7 +2,7 @@
  * Aperta Server Library and Minecraft Aspects
  *
  * @author Jared Allard <jaredallard@outlook.com>
- * @version 1.1-.0
+ * @version 1.1.0
  * @license MIT
  * @todo seperation of MC and apertad APIs
  * @todo use aync.waterfall [more than now]

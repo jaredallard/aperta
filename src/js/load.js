@@ -25,36 +25,14 @@ var M = new apertad('mc.jaredallard.me:8080', '1', false);
 // init the ui library
 ui.init();
 
-var page = page;
+// close buttons
+$('.login-drag-close').on('click', function() {
+  winclose();
+})
 
-if(page) {
-  page.register({
-    name: 'mods',
-    title: 'Mods',
-    init: function() {
-      page.show('mods');
-    },
-    exit: function() {
-      page.hide('mods');
-    },
-    onBack: function() {
-      page.show('mods');
-    }
-  });
-
-  page.register({
-    name: 'about',
-    title: 'About',
-    init: function() {
-      page.show('about');
-    },
-    exit: function() {
-      page.hide('about');
-    },
-    onBack: function() {
-      page.show('about');
-    }
-  });
-
-  page.set('mods');
+function winclose() {
+  console.log('close window')
+  var gui = require('nw.gui');
+  var win = gui.Window.get();
+  win.close(true);
 }

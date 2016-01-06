@@ -61,6 +61,7 @@ input:-webkit-autofill {
 .login-drag-close i {
   font-size:1.2em;
   color:#bebebe;
+  -webkit-app-region: no-drag;
 }
 
 .login-name {
