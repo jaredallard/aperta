@@ -987,20 +987,9 @@ apertad.prototype.launchProfile = function(name, stdout, stderr, cb) {
     ];
 
     // net.minecraft.client.main.Main
-    // java args: console.log(that.java_binary, java_args.toString().replace(/\,/g, ' '));
+    console.log(that.java_binary, java_args.toString().replace(/\,/g, ' '));
 
     try {
-      if(!stdout) {
-        stdout = function() {
-
-        };
-      }
-      if(!stderr) {
-        stderr = function() {
-
-        }
-      }
-
       launcher = exec(that.java_binary, java_args, { cwd: dir });
       launcher.stderr.on('data', stderr);
       launcher.stdout.on('data', stdout);

@@ -80,7 +80,16 @@ window.ui = {
     if(!fs.existsSync(path.join(M.minecraft_envs, modpack))) {
       return this.installMod(elem);
     } else {
-      return M.launchProfile(modpack);
+      return M.launchProfile(modpack, function(data) {
+        console.log(data.toString('ascii'));
+      }, function(data) {
+        console.log('[stderr]', data.toString('ascii'));
+      },
+      function(err) {
+        if(err) {
+          return console.log(err);
+        }
+      });
     }
   },
   installMod: function(elem) {
