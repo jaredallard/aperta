@@ -457,6 +457,7 @@ apertad.prototype.mc_getVersions = function() {
  **/
 apertad.prototype.mc_getAssets = function(version, cb) {
   var that = this;
+
   request({
     method: 'GET',
     uri: 'https://s3.amazonaws.com/Minecraft.Download/indexes/'+version+'.json'
@@ -570,10 +571,14 @@ apertad.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
           var remote_lib = lfp[i].name.split(':');
 
           for(var ii = 0; ii!== ll.length; ii++) {
-            var local_lib = ll[ii].name.split(':')
+            var local_lib = ll[ii].name.split(':');
             if(local_lib[0] === remote_lib[0] && local_lib[1] === remote_lib[1]) {
               if(local_lib[2] !== remote_lib[2]) {
                 console.warn('[WARN]', 'local lib "'+local_lib[1]+'" is a different version than the forge requested lib.');
+                ll.splice(ii, 1);
+                break;
+              } else if(local_lib[2] === remote_lib[2]) {
+                console.log('[WARN]', 'local lib is same version, remove from stack');
                 ll.splice(ii, 1);
                 break;
               }
@@ -649,38 +654,60 @@ apertad.prototype.downloadAVersion = function(version, onProgress, cb, forge) {
         lib_url  += '.jar';
 
         var dl = lib_package+'/'+lib_name+'/'+lib_ver+'/'+lib_url,
-        sf = path.join(sl, lib_path),
-        output = fs.createWriteStream(sf);
+        sf = path.join(sl, lib_path);
 
         if(readahead === 1) {
           non_natives.push(sf); // faster start times
         }
 
-        // DEBUG: console.log('GET', 'https://libraries.minecraft.net/'+dl);
         var url = lib_obj.url || 'https://libraries.minecraft.net/';
 
-        // show progress on download
-        progress(request(url+dl), {
-          throttle: 100
-        }).on('progress', function(state) {
-          onProgress(null, state, path.basename(url+dl));
-        }).on('error', function(err) {
-          console.log('[WARN]', 'request states error on downloading: ', lib_name, lib_ver)
-          onProgress(err);
-        }).pipe(output);
+        /**
+         * Async friendly downloading of a library
+         **/
+        var downloadFile = function() {
+          var output = fs.createWriteStream(sf);
 
-        output.on('close', function(err) {
-          onProgress(null, { percent: 100 }, path.basename(url+dl));
+          progress(request(url+dl), {
+            throttle: 100
+          }).on('progress', function(state) {
+            onProgress(null, state, path.basename(url+dl));
+          }).on('error', function(err) {
+            console.error('WARN', 'request states error on downloading: ', lib_name, lib_ver)
+            onProgress(err);
+          }).pipe(output);
 
-          var is_cust = '';
-          if(lib_obj.url) {
-            is_cust += '[URL] ';
+          output.on('close', function(err) {
+            if(fs.statSync(sf).size === 0) {
+              console.error('ERROR', lib_name, 'failed to download');
+              onProgress(null, { percent: 0 }, path.basename(url+dl));
+              return downloadFile();
+            }
+
+            onProgress(null, { percent: 100 }, path.basename(url+dl));
+
+            var is_cust = '';
+            if(lib_obj.url) {
+              is_cust += '[URL] ';
+            }
+            if(lib_obj.natives) {
+              is_cust += '[NATIVE] ';
+            }
+            lib_cb(is_cust+'OK', lib_name, lib_ver);
+          });
+        }
+
+        // check if we already have the lib
+        if(fs.existsSync(sf) === false) {
+          return downloadFile();
+        } else {
+          if(fs.statSync(sf).size !== 0) {
+            return lib_cb('EXISTS', lib_name, lib_ver);
+          } else {
+            console.log('WARN', 'dep', lib_name, 'was found but is zero size.');
+            return downloadFile();
           }
-          if(lib_obj.natives) {
-            is_cust += '[NATIVE] ';
-          }
-          lib_cb(is_cust+'200 OK', lib_name, lib_ver);
-        });
+        }
       }
 
       // super hacky async loop
@@ -727,6 +754,7 @@ apertad.prototype.downloadVersionAssets = function(version, onProgress, cb) {
   var that = this;
 
   if(fs.existsSync(path.join(this.minecraft_assets, 'indexes', version+'.json'))) {
+    console.log('[INFO]', 'assets already exist. Should be OK');
     return cb(null); // already exists, return
   }
 
@@ -941,6 +969,7 @@ apertad.prototype.launchProfile = function(name, stdout, stderr, cb) {
     }));
 
     uzs.on('error', function(err) {
+      console.log('[NONCRIT] unzip: ', err);
       return callback(err);
     });
 
@@ -994,7 +1023,43 @@ apertad.prototype.launchProfile = function(name, stdout, stderr, cb) {
       launcher.stderr.on('data', stderr);
       launcher.stdout.on('data', stdout);
       launcher.on('close', function() {
-        return cb();
+        // remove natives
+        function removeFolder(location, next) {
+          fs.readdir(location, function (err, files) {
+              async.each(files, function (file, cb) {
+                  file = location + '/' + file
+                  fs.stat(file, function (err, stat) {
+                      if (err) {
+                          return cb(err);
+                      }
+                      if (stat.isDirectory()) {
+                          removeFolder(file, cb);
+                      } else {
+                          fs.unlink(file, function (err) {
+                              if (err) {
+                                  return cb(err);
+                              }
+                              return cb();
+                          })
+                      }
+                  })
+              }, function (err) {
+                  if (err) return next(err)
+                  fs.rmdir(location, function (err) {
+                      return next(err)
+                  })
+              })
+          })
+        }
+
+        removeFolder(natives_path, function(err) {
+          console.log('[apertad]', 'removed natives folder')
+          if(err) {
+            console.log('WARN', 'failed to remove natives with:', err);
+          }
+
+          return cb();
+        });
       });
     } catch(err) {
       return cb(err);
@@ -1012,14 +1077,19 @@ apertad.prototype.launchProfile = function(name, stdout, stderr, cb) {
 apertad.prototype.downloadForge = function(version, onProgress, cb) {
   var base      = path.join(this.minecraft_vers, version),
       save_jar  = path.join(this.minecraft_tmp, version+'-src.jar'),
+      save_json = path.join(base, version+'.json'),
       ws        = fs.createWriteStream(save_jar);
 
   var forge_url = 'http://files.minecraftforge.net/maven/net/minecraftforge/forge/'
       forge_url += version+'/forge-'+version+'-installer.jar';
 
+  if(fs.existsSync(save_json)) {
+    console.log('[INFO]', 'forge version already exists, assuming OK.');
+    return cb(); // already downloaded.
+  }
+
   // create the director[y/ies]
   mkdirp.sync(base);
-  mkdirp.sync(path.basename(save_jar));
 
   // download forge
   console.log('[apertad]', 'GET', forge_url)
@@ -1042,7 +1112,7 @@ apertad.prototype.downloadForge = function(version, onProgress, cb) {
 
       // only extract install_profile.json
       if (fileName === "install_profile.json") {
-        entry.pipe(fs.createWriteStream(path.join(base, version+'.json')));
+        entry.pipe(fs.createWriteStream(save_json));
       } else {
         entry.autodrain();
       }
@@ -1111,8 +1181,11 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
       function(cb) {
         console.log('[INFO]', 'installing mc, libs, and forge libs');
         that.createProfile(dj.name, dj.versions.mc, onProgress, function(err) {
-          console.log(err);
-          return cb(err);
+          if(err) {
+            return cb(err);
+          }
+
+          return cb(null);
         }, dj.versions.forge);
       },
       function(cb) {
@@ -1156,6 +1229,7 @@ apertad.prototype.installModpack = function(name, onProgress, onFinished) {
 
               uzs.on('error', function(err) {
                 // TODO: parse non-critical errors, i.e file already exists.
+                console.log('[NONCRIT] unzip: ', err);
                 return callback(err);
               });
 

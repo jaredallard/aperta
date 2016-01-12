@@ -34,5 +34,9 @@ function winclose() {
   console.log('close window')
   var gui = require('nw.gui');
   var win = gui.Window.get();
-  win.close(true);
+
+  gui.App.closeAllWindows();
+  gui.App.quit();
+
+  win.close(true); // fallback
 }

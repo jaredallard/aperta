@@ -110,7 +110,7 @@ window.ui = {
       // $('#p1na').text(filename.substr(0, 30));
       // $('#p1nu').text(state.percent+'/100');
 
-      $(elem).children('.file-installing').html('PlzWait');
+      $(elem).children('.file-installing').html('...');
       $(elem).children('button').html(state.percent+'%');
     }, function(err) {
       if(err) {
@@ -119,7 +119,8 @@ window.ui = {
       }
 
       $('.progress-wrapper').hide();
-      $(elem).find('.mdl-button').text('LAUNCH')
+      $(elem).find('button').text('Launch');
+      $(elem).find('.file-installing').text('');
     });
   },
   getMods: function() {
