@@ -983,15 +983,14 @@ apertad.prototype.launchProfile = function(name, stdout, stderr, cb) {
     }
 
     var java_args = [
-      '-XX:HeapDumpPath=MojangTricksIntelDriversForPerformance_javaw.exe_minecraft.exe.heapdump',
-      '-Xms512m',
-      '-Xmx2048m',
+      '-Xmx2G',
       '-XX:+UseConcMarkSweepGC',
+      '-XX:+CMSIncrementalMode',
       '-XX:-UseAdaptiveSizePolicy',
-      '-Duser.language=en',
+      '-Xmn128M',
       '-Djava.library.path='+natives_path,
       '-cp',
-      vlibs.toString().replace(/\,/g, ';')+';'+version_jar,
+      vlibs.toString().replace(/\,/g, ':')+':'+version_jar,
       main_class,
       '--username',
       my_un,
