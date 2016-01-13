@@ -60,7 +60,7 @@ window.ui = {
     launcher_win.on('close', function() {
       this.hide();
       this.close(true);
-      win.show();
+      win.close(true);
     })
   },
   doMain: function() {
