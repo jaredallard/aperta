@@ -2,7 +2,7 @@
 
 The Open Source, Security Driven, and extendable Minecraft Launcher.
 
-![image](https://sc-cdn.scaleengine.net/i/e8d0fea02f6084314b7924fb951db363.png)
+![image](https://sc-cdn.scaleengine.net/i/747d676b1a3f7cad9d0c6850eb91af6f.png)
 
 ## What is Aperta?
 
@@ -64,3 +64,9 @@ You can view currently [open issues](https://github.com/jaredallard/aperta) and 
 on one, or you can go through and optimize a lot of this code.
 
 The project was in a proof of concept stage and has about a days worth of time in it so far.
+
+## DMCA
+
+Currently we are not a LLC. We will be `Aperta, LLC` soon. Until then we have no designated agent.
+
+See how to request takedown regardless from DMCA.md
